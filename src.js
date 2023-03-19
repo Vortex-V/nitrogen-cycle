@@ -87,8 +87,6 @@ window.onload = () => {
              resizable: true, resizeCellSize: new go.Size(20, 20)
          })
 
-
-
          Object.assign(fn, {
 
              // Node selection adornment
@@ -175,19 +173,19 @@ window.onload = () => {
                          margin: 1, background: "transparent",
                          mouseEnter: (e, shape) => shape.stroke = "dodgerblue",
                          mouseLeave: (e, shape) => shape.stroke = "lightgray",
-                         click: ClickFunction(propname, color), contextClick: ClickFunction(propname, color)
+                         click: fn.ClickFunction(propname, color), contextClick: fn.ClickFunction(propname, color)
                      });
              },
              LightFillButtons() {  // used by multiple context menus
                  return [
                      $("ContextMenuButton",
                          $(go.Panel, "Horizontal",
-                             ColorButton("white", "fill"), ColorButton("beige", "fill"), ColorButton("aliceblue", "fill"), ColorButton("lightyellow", "fill")
+                             fn.ColorButton("white", "fill"), fn.ColorButton("beige", "fill"), fn.ColorButton("aliceblue", "fill"), fn.ColorButton("lightyellow", "fill")
                          )
                      ),
                      $("ContextMenuButton",
                          $(go.Panel, "Horizontal",
-                             ColorButton("lightgray", "fill"), ColorButton("lightgreen", "fill"), ColorButton("lightblue", "fill"), ColorButton("pink", "fill")
+                             fn.ColorButton("lightgray", "fill"), fn.ColorButton("lightgreen", "fill"), fn.ColorButton("lightblue", "fill"), fn.ColorButton("pink", "fill")
                          )
                      )
                  ];
@@ -196,12 +194,12 @@ window.onload = () => {
                  return [
                      $("ContextMenuButton",
                          $(go.Panel, "Horizontal",
-                             ColorButton("black"), ColorButton("green"), ColorButton("blue"), ColorButton("red")
+                             fn.ColorButton("black"), fn.ColorButton("green"), fn.ColorButton("blue"), fn.ColorButton("red")
                          )
                      ),
                      $("ContextMenuButton",
                          $(go.Panel, "Horizontal",
-                             ColorButton("brown"), ColorButton("magenta"), ColorButton("purple"), ColorButton("orange")
+                             fn.ColorButton("brown"), fn.ColorButton("magenta"), fn.ColorButton("purple"), fn.ColorButton("orange")
                          )
                      )
                  ];
@@ -216,7 +214,7 @@ window.onload = () => {
                          margin: 1, background: "transparent",
                          mouseEnter: (e, shape) => shape.background = "dodgerblue",
                          mouseLeave: (e, shape) => shape.background = "transparent",
-                         click: ClickFunction(propname, sw), contextClick: ClickFunction(propname, sw)
+                         click: fn.ClickFunction(propname, sw), contextClick: fn.ClickFunction(propname, sw)
                      });
              },
              // Create a context menu button for setting a data property with a stroke dash Array value.
@@ -229,19 +227,19 @@ window.onload = () => {
                          margin: 1, background: "transparent",
                          mouseEnter: (e, shape) => shape.background = "dodgerblue",
                          mouseLeave: (e, shape) => shape.background = "transparent",
-                         click: ClickFunction(propname, dash), contextClick: ClickFunction(propname, dash)
+                         click: fn.ClickFunction(propname, dash), contextClick: fn.ClickFunction(propname, dash)
                      });
              },
              StrokeOptionsButtons() {  // used by multiple context menus
                  return [
                      $("ContextMenuButton",
                          $(go.Panel, "Horizontal",
-                             ThicknessButton(1), ThicknessButton(2), ThicknessButton(3), ThicknessButton(4)
+                             fn.ThicknessButton(1), fn.ThicknessButton(2), fn.ThicknessButton(3), fn.ThicknessButton(4)
                          )
                      ),
                      $("ContextMenuButton",
                          $(go.Panel, "Horizontal",
-                             DashButton(null), DashButton([2, 4]), DashButton([4, 4])
+                             fn.DashButton(null), fn.DashButton([2, 4]), fn.DashButton([4, 4])
                          )
                      )
                  ];
@@ -254,14 +252,84 @@ window.onload = () => {
                          margin: 1, background: "transparent",
                          mouseEnter: (e, shape) => shape.fill = "dodgerblue",
                          mouseLeave: (e, shape) => shape.fill = "lightgray",
-                         click: ClickFunction(propname, fig), contextClick: ClickFunction(propname, fig)
+                         click: fn.ClickFunction(propname, fig), contextClick: fn.ClickFunction(propname, fig)
                      });
              },
 
+
+             // Link context menu
+             // All buttons in context menu work on both click and contextClick,
+             // in case the user context-clicks on the button.
+             // All buttons modify the link data, not the Link, so the Bindings need not be TwoWay.
+             ArrowButton(num) {
+                 var geo = "M0 0 M16 16 M0 8 L16 8  M12 11 L16 8 L12 5";
+                 if (num === 0) {
+                     geo = "M0 0 M16 16 M0 8 L16 8";
+                 } else if (num === 2) {
+                     geo = "M0 0 M16 16 M0 8 L16 8  M12 11 L16 8 L12 5  M4 11 L0 8 L4 5";
+                 }
+                 return $(go.Shape,
+                     {
+                         geometryString: geo,
+                         margin: 2, background: "transparent",
+                         mouseEnter: (e, shape) => shape.background = "dodgerblue",
+                         mouseLeave: (e, shape) => shape.background = "transparent",
+                         click: fn.ClickFunction("dir", num), contextClick: fn.ClickFunction("dir", num)
+                     });
+             },
+             AllSidesButton(to) {
+                 var setter = (e, shape) => {
+                     e.handled = true;
+                     e.diagram.model.commit(m => {
+                         var link = shape.part.adornedPart;
+                         m.set(link.data, (to ? "toSpot" : "fromSpot"), go.Spot.stringify(go.Spot.AllSides));
+                         // re-spread the connections of other links connected with the node
+                         (to ? link.toNode : link.fromNode).invalidateConnectedLinks();
+                     });
+                 };
+                 return $(go.Shape,
+                     {
+                         width: 12, height: 12, fill: "transparent",
+                         mouseEnter: (e, shape) => shape.background = "dodgerblue",
+                         mouseLeave: (e, shape) => shape.background = "transparent",
+                         click: setter, contextClick: setter
+                     });
+             },
+             SpotButton(spot, to) {
+                 var ang = 0;
+                 var side = go.Spot.RightSide;
+                 if (spot.equals(go.Spot.Top)) {
+                     ang = 270;
+                     side = go.Spot.TopSide;
+                 } else if (spot.equals(go.Spot.Left)) {
+                     ang = 180;
+                     side = go.Spot.LeftSide;
+                 } else if (spot.equals(go.Spot.Bottom)) {
+                     ang = 90;
+                     side = go.Spot.BottomSide;
+                 }
+                 if (!to) ang -= 180;
+                 var setter = (e, shape) => {
+                     e.handled = true;
+                     e.diagram.model.commit(m => {
+                         var link = shape.part.adornedPart;
+                         m.set(link.data, (to ? "toSpot" : "fromSpot"), go.Spot.stringify(side));
+                         // re-spread the connections of other links connected with the node
+                         (to ? link.toNode : link.fromNode).invalidateConnectedLinks();
+                     });
+                 };
+                 return $(go.Shape,
+                     {
+                         alignment: spot, alignmentFocus: spot.opposite(),
+                         geometryString: "M0 0 M12 12 M12 6 L1 6 L4 4 M1 6 L4 8",
+                         angle: ang,
+                         background: "transparent",
+                         mouseEnter: (e, shape) => shape.background = "dodgerblue",
+                         mouseLeave: (e, shape) => shape.background = "transparent",
+                         click: setter, contextClick: setter
+                     });
+             },
          })
-
-
-
      }
 
 
@@ -395,12 +463,12 @@ window.onload = () => {
             $(go.Panel, "Auto",
                 $(go.Shape,  // the label background, which becomes transparent around the edges
                     {
-                        fill: $(go.Brush, "Radial",
-                            {0: "rgb(240, 240, 240)", 1: "rgba(240, 240, 240, .5)"}),
+                        fill: "transparent"/*$(go.Brush, "Radial",
+                            {0: "rgb(240, 240, 240)", 1: "rgba(240, 240, 240, .5)"})*/,
                         stroke: null
                     }),
                 $(go.TextBlock,
-                    {alignmentFocus: new go.Spot(0, 1, -4, 0), editable: true, text: "default"},
+                    {alignmentFocus: new go.Spot(0, 1, -4, 0), editable: true, text: ""},
                     new go.Binding("text").makeTwoWay(),  // TwoWay due to user editing with TextEditingTool
                     new go.Binding("stroke", "color"))
             ),
@@ -426,86 +494,11 @@ window.onload = () => {
             });
     }
 
-    // Link context menu
-    // All buttons in context menu work on both click and contextClick,
-    // in case the user context-clicks on the button.
-    // All buttons modify the link data, not the Link, so the Bindings need not be TwoWay.
 
-    function ArrowButton(num) {
-        var geo = "M0 0 M16 16 M0 8 L16 8  M12 11 L16 8 L12 5";
-        if (num === 0) {
-            geo = "M0 0 M16 16 M0 8 L16 8";
-        } else if (num === 2) {
-            geo = "M0 0 M16 16 M0 8 L16 8  M12 11 L16 8 L12 5  M4 11 L0 8 L4 5";
-        }
-        return $(go.Shape,
-            {
-                geometryString: geo,
-                margin: 2, background: "transparent",
-                mouseEnter: (e, shape) => shape.background = "dodgerblue",
-                mouseLeave: (e, shape) => shape.background = "transparent",
-                click: ClickFunction("dir", num), contextClick: ClickFunction("dir", num)
-            });
-    }
-
-    function AllSidesButton(to) {
-        var setter = (e, shape) => {
-            e.handled = true;
-            e.diagram.model.commit(m => {
-                var link = shape.part.adornedPart;
-                m.set(link.data, (to ? "toSpot" : "fromSpot"), go.Spot.stringify(go.Spot.AllSides));
-                // re-spread the connections of other links connected with the node
-                (to ? link.toNode : link.fromNode).invalidateConnectedLinks();
-            });
-        };
-        return $(go.Shape,
-            {
-                width: 12, height: 12, fill: "transparent",
-                mouseEnter: (e, shape) => shape.background = "dodgerblue",
-                mouseLeave: (e, shape) => shape.background = "transparent",
-                click: setter, contextClick: setter
-            });
-    }
-
-    function SpotButton(spot, to) {
-        var ang = 0;
-        var side = go.Spot.RightSide;
-        if (spot.equals(go.Spot.Top)) {
-            ang = 270;
-            side = go.Spot.TopSide;
-        } else if (spot.equals(go.Spot.Left)) {
-            ang = 180;
-            side = go.Spot.LeftSide;
-        } else if (spot.equals(go.Spot.Bottom)) {
-            ang = 90;
-            side = go.Spot.BottomSide;
-        }
-        if (!to) ang -= 180;
-        var setter = (e, shape) => {
-            e.handled = true;
-            e.diagram.model.commit(m => {
-                var link = shape.part.adornedPart;
-                m.set(link.data, (to ? "toSpot" : "fromSpot"), go.Spot.stringify(side));
-                // re-spread the connections of other links connected with the node
-                (to ? link.toNode : link.fromNode).invalidateConnectedLinks();
-            });
-        };
-        return $(go.Shape,
-            {
-                alignment: spot, alignmentFocus: spot.opposite(),
-                geometryString: "M0 0 M12 12 M12 6 L1 6 L4 4 M1 6 L4 8",
-                angle: ang,
-                background: "transparent",
-                mouseEnter: (e, shape) => shape.background = "dodgerblue",
-                mouseLeave: (e, shape) => shape.background = "transparent",
-                click: setter, contextClick: setter
-            });
-    }
 
 
 
     if (ENV.editor){
-
         Diagram.nodeTemplate.selectionAdornmentTemplate =
             $(go.Adornment, "Spot",
                 $(go.Placeholder, {padding: 10}),
@@ -545,9 +538,9 @@ window.onload = () => {
 
         Diagram.groupTemplate.contextMenu =
             $("ContextMenu",
-                LightFillButtons(),
-                DarkColorButtons(),
-                StrokeOptionsButtons()
+                fn.LightFillButtons(),
+                fn.DarkColorButtons(),
+                fn.StrokeOptionsButtons()
             );
 
         Diagram.linkTemplate.contextMenu =
@@ -556,19 +549,19 @@ window.onload = () => {
                 fn.StrokeOptionsButtons(),
                 $("ContextMenuButton",
                     $(go.Panel, "Horizontal",
-                        ArrowButton(0), ArrowButton(1), ArrowButton(2)
+                        fn.ArrowButton(0), fn.ArrowButton(1), fn.ArrowButton(2)
                     )
                 ),
                 $("ContextMenuButton",
                     $(go.Panel, "Horizontal",
                         $(go.Panel, "Spot",
-                            AllSidesButton(false),
-                            SpotButton(go.Spot.Top, false), SpotButton(go.Spot.Left, false), SpotButton(go.Spot.Right, false), SpotButton(go.Spot.Bottom, false)
+                            fn.AllSidesButton(false),
+                            fn.SpotButton(go.Spot.Top, false), fn.SpotButton(go.Spot.Left, false), fn.SpotButton(go.Spot.Right, false), fn.SpotButton(go.Spot.Bottom, false)
                         ),
                         $(go.Panel, "Spot",
                             {margin: new go.Margin(0, 0, 0, 2)},
-                            AllSidesButton(true),
-                            SpotButton(go.Spot.Top, true), SpotButton(go.Spot.Left, true), SpotButton(go.Spot.Right, true), SpotButton(go.Spot.Bottom, true)
+                            fn.AllSidesButton(true),
+                            fn.SpotButton(go.Spot.Top, true), fn.SpotButton(go.Spot.Left, true), fn.SpotButton(go.Spot.Right, true), fn.SpotButton(go.Spot.Bottom, true)
                         )
                     )
                 )
@@ -577,8 +570,6 @@ window.onload = () => {
         Diagram.linkTemplate.selectionAdornmentTemplate.add(
             fn.CMButton({alignmentFocus: new go.Spot(0, 0, -6, -4)})
         )
-
-
     }
 
     window.addEventListener("keydown", (e) => {
